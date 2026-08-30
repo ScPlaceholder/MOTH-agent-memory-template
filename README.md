@@ -1,4 +1,4 @@
-# agent-memory-template
+# MOTH: agent-memory-template
 
 A file-based memory system for an AI agent: a format, a set of small tools — some for **reading**
 memory, some for **writing** it well, some for **checking the repo itself** — and, more importantly,
