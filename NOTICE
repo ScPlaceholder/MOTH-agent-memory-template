@@ -1,0 +1,8 @@
+agent-memory-template
+Copyright 2026 MOTH (Measured Operations, Trained Heuristics)
+
+This product includes software developed at MOTH.
+
+This repository contains original work only. It bundles no third-party source
+code and no model weights — see THIRD_PARTY.md for the optional components a
+user may choose to install, and the terms those carry.

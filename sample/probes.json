@@ -1,0 +1,72 @@
+{
+  "_README": [
+    "THREE SECTIONS WITH THREE DIFFERENT JOBS. They are reported separately and never summed,",
+    "because summing them produces a number that answers no question anybody has.",
+    "",
+    "  works    - phrased the way a person actually asks, months later. THIS is 'does it work'.",
+    "             Expected: nearly all at rank 1. If this section drops, there is a bug.",
+    "",
+    "  boundary - the documented edge: questions sharing ZERO content words with their answer.",
+    "             Expected NOT to return the file. These are not failures and are not scored as",
+    "             such -- they are what the limit looks like, shown deliberately so a user meets it",
+    "             here rather than by surprise in their own corpus.",
+    "",
+    "  absent   - topics genuinely not in the corpus. Must return nothing. Proves the matcher does",
+    "             not fabricate. Cannot fail for a broken system, so it is never scored either.",
+    "",
+    "WHY THIS SPLIT EXISTS (the correction that produced it): the boundary probes used to sit in",
+    "the same table as the real ones, turning a documented limit into a headline 'MISS' and a score",
+    "that looked like mediocrity. It measured how adversarially the probes were written, not how",
+    "well retrieval works. Asking a strategy note whether the sky is blue is not a hard query, it is",
+    "a nonsense one, and scoring it manufactures a failure that never happened.",
+    "",
+    "NOTE the-cache-key-omitted-the-locale appears in BOTH works and boundary, on purpose. Same",
+    "file, same system, two phrasings -- one lands at rank 1 and one returns nothing. That pair is",
+    "the clearest single demonstration of what actually governs this tool."
+  ],
+
+  "works": [
+    { "q": "clients hammering a service while it was trying to come back up",
+      "expect": "retry-storm-took-down-the-queue" },
+
+    { "q": "someone ran the deploy step a second time and the data doubled",
+      "expect": "the-migration-ran-twice" },
+
+    { "q": "old rows where we cannot tell which region the clock belonged to",
+      "expect": "timezone-stored-as-local" },
+
+    { "q": "the slow tail is the container waking up rather than the code",
+      "expect": "cold-start-dominates-the-p99" },
+
+    { "q": "a check that was green for months without ever being able to go red",
+      "expect": "the-linter-was-disabled-in-ci" },
+
+    { "q": "a report that only read data but still blocked everyone else's writes",
+      "expect": "bulk-export-holds-a-transaction-open" },
+
+    { "q": "staging exercises a different branch than production when config is unreachable",
+      "expect": "feature-flag-defaults-differ-by-environment" },
+
+    { "q": "users in some regions saw prices in the wrong currency",
+      "expect": "the-cache-key-omitted-the-locale",
+      "note": "the NATURAL phrasing of the boundary case below -- compare the two" },
+
+    { "q": "we had copies of everything and none of them could bring the system back",
+      "expect": "backups-were-never-restored" },
+
+    { "q": "prove the compiler works before blaming your own program",
+      "expect": "hello-world-in-the-build-image" }
+  ],
+
+  "boundary": [
+    { "q": "people in one country were shown the wrong money amounts",
+      "expect": "the-cache-key-omitted-the-locale",
+      "why": "country/region, money/currency, people/users -- synonym bridges. Shares no content word with the file, or with any other file in the corpus. Compare the 'works' entry for the same file: one word of shared vocabulary is the entire difference." }
+  ],
+
+  "absent": [
+    "photolithography wafer yield",
+    "medieval falconry equipment",
+    "tidal turbine cavitation nacelle"
+  ]
+}
