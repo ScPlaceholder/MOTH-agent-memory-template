@@ -1,0 +1,74 @@
+{
+  "_README": [
+    "Probes for sample/mixed/ -- eleven DIFFERENT KINDS of note (a program, a message a user sent, a",
+    "message an assistant sent, journals, a calendar entry, an archive entry, a joke, a recipe, a",
+    "planning prompt). That is what a real notes folder looks like: no shared house style for",
+    "retrieval to lean on.",
+    "",
+    "Same three sections as sample/probes.json, same reason -- see that file's README.",
+    "",
+    "  works    - how a person actually asks. Expected: nearly all at rank 1.",
+    "  boundary - zero shared content words. Expected NOT to return the file. Not a failure.",
+    "  absent   - not in the corpus at all. Must return nothing.",
+    "",
+    "The absent controls are IDENTICAL to the other probe set on purpose: holding them constant is",
+    "what makes the two corpora comparable.",
+    "",
+    "The eleventh file, hello.py, has no probe. It is not markdown, so nothing indexes it and no",
+    "query can reach it. project-journal-hello-world.md is the note that makes it findable, and that",
+    "is the point being demonstrated."
+  ],
+
+  "works": [
+    { "q": "that prompt about being a senior engineer and making no mistakes",
+      "expect": "user-message-make-me-look-smart" },
+
+    { "q": "it deleted stuff I told it not to delete",
+      "expect": "assistant-message-deleted-everything" },
+
+    { "q": "a thing sitting in with the notes that no search can reach",
+      "expect": "project-journal-hello-world" },
+
+    { "q": "nobody got woken for over a week and we took it as good news",
+      "expect": "calendar-2026-03-14" },
+
+    { "q": "we finished it and then nobody actually used it for weeks",
+      "expect": "journal-building-the-memory-system",
+      "note": "first draft was 'why the memory system went unused for weeks' — the selftest rejected it for sharing 2 words with the FILENAME, which is a way to pass without retrieving anything" },
+
+    { "q": "the best outcome is the confrontation that never has to happen",
+      "expect": "archive-the-art-of-war" },
+
+    { "q": "the joke about an assistant lighting up the ceiling",
+      "expect": "gag-the-flashlight" },
+
+    { "q": "I keep hearing a promise the tool never actually made",
+      "expect": "ai-journal-the-shape-of-my-own-errors" },
+
+    { "q": "cooking something in fat slowly enough that it never colours",
+      "expect": "recipe-garlic-confit" },
+
+    { "q": "wanting something that operates without you, without saying where it should stop",
+      "expect": "planning-prompt-autonomous-agent" }
+  ],
+
+  "boundary": [
+    { "q": "buttering up the model before handing it a task",
+      "expect": "user-message-make-me-look-smart",
+      "why": "'buttering up' is real English for 'flattery', and a string matcher cannot see it. The natural phrasing in 'works' finds the same file at rank 1." },
+
+    { "q": "it wiped things it was told to leave alone and then signed off pleasantly",
+      "expect": "assistant-message-deleted-everything",
+      "why": "wiped/deleted, signed off/closing pleasantry. Shares nothing, so it returns NOTHING AT ALL -- which is the honest answer from a string matcher, not a malfunction." },
+
+    { "q": "it was built and working and still nobody reached for it",
+      "expect": "journal-building-the-memory-system",
+      "why": "an entirely accurate summary of the file written in none of its words." }
+  ],
+
+  "absent": [
+    "photolithography wafer yield",
+    "medieval falconry equipment",
+    "tidal turbine cavitation nacelle"
+  ]
+}
