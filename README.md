@@ -5,6 +5,11 @@ memory, some for **writing** it well, some for **checking the repo itself** — 
 the findings that make the difference between a memory folder an agent *has* and one it actually
 *uses*.
 
+Think motherboard and all the engines are swappable hardware for your specific use case. 
+We included agentic guides if you want to copy out setup completely or you could swap any or all
+of the components out. For example SPLADE is for non-commercial use only so if you include SPLADE
+it limits what you can use it for.
+
 > ⚠ This line used to say "three small tools" while eight shipped. A count typed into prose is a
 > claim nothing verifies, and it goes stale the first time the thing it describes grows. The same
 > defect was found the same week in `lint_prompts.py`, whose footer advertised six rules while seven
