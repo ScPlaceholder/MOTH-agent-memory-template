@@ -129,13 +129,14 @@ message, and the message must win. So classification is a separate pass over the
 memory cannot. `tools/memory_candidates.py` carries a selftest that **fails if the module ever
 imports a memory writer** — the isolation is structural, not a convention.
 
-> ### About `docs/architecture.jpg`
+> ### About this poster
 >
-> The repository also contains a poster, [`docs/architecture.jpg`](docs/architecture.jpg). **It is
-> not a picture of this template** and should not be read as one. It depicts the author's larger
-> production system combined with this reference implementation, and it diverges from the code here
-> in four structural ways — three of which are not simplifications but the *opposite* of what this
-> repository measured and concluded:
+> ![The author's combined production and reference architecture](docs/architecture.jpg)
+>
+> **It is not a picture of this template** and should not be read as one. It depicts the author's
+> larger production system combined with this reference implementation, and it diverges from the
+> code here in four structural ways — three of which are not simplifications but the *opposite* of
+> what this repository measured and concluded:
 >
 > | the poster shows | this repository |
 > |---|---|
