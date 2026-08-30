@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+*.local.json
+.DS_Store
+
+# ---- NEVER COMMIT: real-conversation calibration data ----
+# The classifier needs a held-out set of REAL utterances to be measured honestly. The corpus that
+# would supply it is 9,997 inbound family messages, and 30%% of them are from one person who has not
+# been asked and whose DMs are private. A held-out set built from real traffic and a held-out set
+# that ships in this repo are MUTUALLY EXCLUSIVE artifacts; the shipped one must be synthetic.
+# This entry exists BEFORE any such file does, so the guard cannot arrive after the leak.
+heldout*.json
+held_out*.json
+*_heldout*.jsonl
+calibration_real*.json
+_local_fixtures/
