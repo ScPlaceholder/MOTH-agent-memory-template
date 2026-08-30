@@ -87,10 +87,71 @@ come back red.
 
 ## Architecture
 
-![Memory and retrieval architecture](docs/architecture.jpg)
+Two paths, and **they do not meet.** That separation is the design, not an omission.
 
-The diagram is deliberately simplified — it is the shape, not the implementation. The sections below
-are the implementation, and where they disagree with the picture, they are correct.
+```
+                       ┌──────────────────────────────────────────┐
+   USER MESSAGE ──────►│  READ PATH  (synchronous, on the wire)   │
+        │              └──────────────────────────────────────────┘
+        │                    keyword  +  keyize
+        │                          │
+        │                         RRF                 ← fusion, not score averaging
+        │                          │
+        │                    ┌─────┴─────┐
+        │                    │   GATE    │  ANSWERED · CLARIFY · ABSENT
+        │                    └─────┬─────┘
+        │                      WEAK│
+        │                          ▼
+        │                  SPLADE escalation          ← only on a weak result, never by default
+        │                          │
+        │                  fuzzy-topic fallback       ← only if that returns nothing usable
+        │
+        │              ┌──────────────────────────────────────────┐
+        └─────────────►│ WRITE PATH  (asynchronous, off the wire) │
+                       └──────────────────────────────────────────┘
+                            captured message stream
+                                   │
+                         EmbeddingGemma kNN classifier
+                                   │
+                       CURRENT_CONTEXT ──► ignored
+                       MEMORY_CANDIDATE ──► _memory_candidates.jsonl  (rolling queue)
+                                   │
+                                   ╫  ← THE TEMPLATE STOPS HERE, ON PURPOSE
+                                   │
+                        promotion to permanent memory
+                        = a separate, human-visible decision
+```
+
+**Why the classifier is not on the read path.** It was, once. The extra payload competed with the
+message for one event budget and truncated the user's actual question — three retrieved files
+visible and not the question they belonged to. Anything bolted to that path competes with the
+message, and the message must win. So classification is a separate pass over the inbox.
+
+**Why the write path stops at a queue.** A queue can hold a mistake cheaply and reversibly; permanent
+memory cannot. `tools/memory_candidates.py` carries a selftest that **fails if the module ever
+imports a memory writer** — the isolation is structural, not a convention.
+
+> ### About `docs/architecture.jpg`
+>
+> The repository also contains a poster, [`docs/architecture.jpg`](docs/architecture.jpg). **It is
+> not a picture of this template** and should not be read as one. It depicts the author's larger
+> production system combined with this reference implementation, and it diverges from the code here
+> in four structural ways — three of which are not simplifications but the *opposite* of what this
+> repository measured and concluded:
+>
+> | the poster shows | this repository |
+> |---|---|
+> | EmbeddingGemma gating the synchronous message path | deliberately **off** that path (see above) |
+> | SPLADE as one of four parallel fusion engines | **escalation only** — as a fusion member it lost a query the baseline had already answered |
+> | a cross-encoder as an active production stage | **rejected on measurement**: SPLADE 10/14 → SPLADE + `bge-reranker-base` 6/14 |
+> | an automatic write into permanent memory | stops at the candidate queue; promotion is a separate human decision |
+>
+> ⚠ An earlier revision of this README placed that image under this heading and captioned it
+> *"deliberately simplified — the shape, not the implementation."* That was wrong, and the way it was
+> wrong is worth keeping: a *simplification* omits detail, while three of the four rows above are
+> configurations this repository **tested and refused**. The caption also made the mismatch
+> unfalsifiable in advance — if the picture and the code disagree the code wins, so no disagreement
+> could ever count as a defect. Nobody had compared them. A hedge that sounds careful is not a check.
 
 ## How retrieval actually works
 
