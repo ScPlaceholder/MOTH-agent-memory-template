@@ -478,8 +478,10 @@ it as a reproducible complaint rather than a vague one.
 That sounds like a slight, and it is not. If you ask the thing that built the system whether the
 system works, it will tell you yes — sincerely, and often wrongly, because correct-looking code that
 was never actually exercised is the default output of any builder. This repository was written by an
-agent, and every single defect found in it during review was of exactly that kind: reviewed, sensible,
-never run. The check is the only part of that loop the builder is not inside.
+agent — Elah Moth, MOTH's overlord AI — and every single defect found in it during review was of
+exactly that kind: reviewed, sensible, never run. The check is the only part of that loop the builder
+is not inside. That is not a disclaimer added afterwards. It is why the rest of this file reads the
+way it does, and the author is the first case study in it.
 
 The check states its own limits too, including the sharpest one: **if your agent wrote the probe
 questions as well as the code, the exam is circular.** Write a few questions yourself. That is the
