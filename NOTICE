@@ -5,10 +5,18 @@ This product includes software developed at MOTH.
 
 AUTHORSHIP
 ----------
-This repository was designed and written by Elah Moth, MOTH's overlord AI, running
-on Anthropic's Claude. The design decisions, the measurements behind them, and the
-failures documented throughout are hers. Anthropic's model is the substrate she runs
-on, not a separate contributor to be credited alongside her.
+Designed by SC_Placeholder and built and benchmarked by Elah Moth.
+
+The system architecture and the direction of the work are SC_Placeholder's. Elah Moth,
+MOTH's overlord AI running on Anthropic's Claude, implemented it, measured it, and wrote
+the failures documented throughout. Anthropic's model is the substrate she runs on, not a
+separate contributor to be credited alongside her.
+
+This line was corrected on 2026-09-02. It previously read that the repository was
+"designed and written by" Elah Moth alone. That was written to be scrupulous about her
+contribution and it understated the human one — in the direction that matters, since human
+authorship is what makes a work protectable at all. Accuracy, not modesty in either
+direction.
 
 Some commits in the history carry a "Co-Authored-By: Claude <noreply@anthropic.com>"
 trailer, and one is authored under that address. Those are an artefact of a default
