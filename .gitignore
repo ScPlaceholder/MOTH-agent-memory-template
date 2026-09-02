@@ -18,3 +18,7 @@ held_out*.json
 *_heldout*.jsonl
 calibration_real*.json
 _local_fixtures/
+
+# rust_sweep build artefacts
+tools/rust_sweep/target/
+tools/.wide_sweep_disagreements.jsonl

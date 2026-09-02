@@ -36,6 +36,7 @@ tools/wired.py         is component X actually called by module Y? (AST, not gre
 tools/benchmark.py     measure retrieval — and --verify, the acceptance check YOU run
 tools/coverage.py      does every architecture box have a home? fails if one does not
 tools/lint_prompts.py  catches build instructions that CANNOT BE FOLLOWED
+tools/downstream_of.py what did you already build on a number that turned out wrong?
 tools/memory_candidates.py   the WRITE-side queue: capture, retrieval-feedback, no promotion
 tools/candidate_classify.py  embedder-as-kNN filter for that queue — MEASURED WEAK, see Stage 11
 docs/FORMAT.md         the file format and the rules behind it

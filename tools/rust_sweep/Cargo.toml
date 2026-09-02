@@ -1,0 +1,17 @@
+[package]
+name = "rust_sweep"
+version = "0.1.0"
+edition = "2021"
+
+# ⚠ NO DEPENDENCIES, DELIBERATELY. Two reasons.
+#   1. cargo would fetch from crates.io; std-only compiles offline against the toolchain already
+#      installed at ~/.cargo, so this builds on a machine with no network and no surprises.
+#   2. The Python arm it is racing is std-only too. If this one got rayon and memmap while the
+#      other got os.walk, the benchmark would credit the crates rather than the language — which
+#      is exactly the failure a language bake-off must avoid: you would be measuring the crates, not the language.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
