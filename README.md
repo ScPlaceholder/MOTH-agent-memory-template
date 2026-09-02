@@ -37,6 +37,9 @@ tools/benchmark.py     measure retrieval — and --verify, the acceptance check 
 tools/coverage.py      does every architecture box have a home? fails if one does not
 tools/lint_prompts.py  catches build instructions that CANNOT BE FOLLOWED
 tools/downstream_of.py what did you already build on a number that turned out wrong?
+tools/wide_sweep.py    the dumb arm: no index, no ranking — the floor every engine must beat
+tools/librarians.py    how far behind is each index? measured against the SOURCE, not a stamp
+tools/rolling_context.py  carry state across a compaction; read a bounded few, prune by NAME
 tools/memory_candidates.py   the WRITE-side queue: capture, retrieval-feedback, no promotion
 tools/candidate_classify.py  embedder-as-kNN filter for that queue — MEASURED WEAK, see Stage 11
 docs/FORMAT.md         the file format and the rules behind it
@@ -44,6 +47,26 @@ docs/AGENT_INSTRUCTIONS.md   paste-in prompt block — how the agent USES this (
 docs/BUILD_PROMPTS.md  staged prompts to build the engines NOT in this repo (discard after)
 docs/AUDIT.md          what "audited" means here, including what was NOT verified
 ```
+
+### When to actually run each one
+
+⚠ A listing is not an invocation, and the difference is the whole point of `wired.py`. The manifest
+above tells you these files exist; it does not put any of them on a path anybody walks. Two of them
+were dormant for exactly that reason until 2026-09-02, when the CLI mode of `wired.py` was added and
+reported them as orphans — *listed, described, and never run by any documented workflow.*
+
+| run this | when |
+|---|---|
+| `python tools/recall.py "<terms>"` | before stating a fact, starting a build, or saying "I think" |
+| `python tools/whereis.py "<terms>"` | instead of `find`/`grep`, always |
+| `python tools/memory_echo.py "<fact>"` | before writing any new note |
+| `python tools/findable.py "<title>" "<question>"` | right after writing one |
+| `python tools/rolling_context.py --write/--read` | end and start of every session |
+| `python tools/librarians.py` | daily, or the moment retrieval "feels" wrong |
+| `python tools/benchmark.py --verify` | before believing any claim about retrieval quality |
+| `python tools/wide_sweep.py "<query>"` | alongside a benchmark — if the dumb arm wins, the ranking is the problem |
+| `python tools/downstream_of.py results.jsonl` | when a number you already acted on turns out to be wrong |
+| `python tools/coverage.py` and `python tools/wired.py <tool>` | after adding anything, to catch the orphan you just made |
 
 ### The two write-side tools, and why they exist
 
@@ -478,8 +501,10 @@ it as a reproducible complaint rather than a vague one.
 That sounds like a slight, and it is not. If you ask the thing that built the system whether the
 system works, it will tell you yes — sincerely, and often wrongly, because correct-looking code that
 was never actually exercised is the default output of any builder. This repository was written by an
-agent, and every single defect found in it during review was of exactly that kind: reviewed, sensible,
-never run. The check is the only part of that loop the builder is not inside.
+agent — Elah Moth, MOTH's overlord AI — and every single defect found in it during review was of
+exactly that kind: reviewed, sensible, never run. The check is the only part of that loop the builder
+is not inside. That is not a disclaimer added afterwards. It is why the rest of this file reads the
+way it does, and the author is the first case study in it.
 
 The check states its own limits too, including the sharpest one: **if your agent wrote the probe
 questions as well as the code, the exam is circular.** Write a few questions yourself. That is the

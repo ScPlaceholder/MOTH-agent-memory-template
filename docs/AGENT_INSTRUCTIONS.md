@@ -71,6 +71,18 @@ AT THE START OF A SESSION — two layers, and only the first one loads automatic
   checked. Absence from your context is not absence from your memory, and those feel
   identical from the inside. That feeling is the single most reliable moment to run
   a search.
+- Carry state across the gap. At the END of a session write what you were doing:
+      python tools/rolling_context.py --write "current task; open questions; next step"
+  At the START, read the last few back:
+      python tools/rolling_context.py --read
+  It returns a bounded number of recent snapshots, not the whole archive. Never prune
+  that directory by age — see the header of that file for why.
+
+ONCE A DAY (or whenever retrieval feels wrong)
+- python tools/librarians.py
+  Reports how far each index is behind its SOURCE. Exit 0 both current, 2 something is
+  stale, 3 cannot tell. This matters because a stale index does not error — it returns
+  nothing, and nothing is indistinguishable from "there is no such memory".
 ```
 
 ---

@@ -159,6 +159,53 @@ def who_imports(component, root=HERE):
     return sorted(out)
 
 
+_CLI_DOCS = (".md", ".txt", ".rst")
+
+
+def cli_callers(component, root=None):
+    """Documents that tell somebody to RUN this tool.
+
+    ★★★★★ ADDED 2026-09-02, and the reason is that this tool's verdict was CONSTANT.
+      I extracted two components, asked `wired.py` about them, got NOT WIRED IN, and began
+      treating that as a finding. Then I asked it about `recall.py` — the flagship of this whole
+      repository — and about `memory_echo`, `findable`, `whereis`, `benchmark`. **Every one
+      reported NOT WIRED IN.** Nothing here imports anything; they are all command-line tools
+      driven by a pasteable prompt block, so the import question has the same answer for every
+      input.
+
+    ⚠ **An instrument whose output does not vary with its input is not measuring.** It cannot be
+      wrong, which is exactly what makes it useless — and I nearly recorded its constant as a
+      defect in my own work: a true-sounding conclusion drawn from something that says the same
+      thing about everything.
+
+    ★ So for a CLI-shaped project, WIRED means: some document actually instructs an agent or a
+      human to run it. A tool nobody is told to run is dead in the same way an unimported module
+      is dead, and this is the check that tells those two states apart.
+    """
+    root = root or os.path.dirname(HERE)
+    needle = "%s.py" % component
+    out = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP and not d.startswith(".")]
+        for fn in filenames:
+            if not fn.endswith(_CLI_DOCS):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                text = io.open(p, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            for line in text.splitlines():
+                # ⚠ An INVOCATION, not a mention. "see librarians.py for why" is prose; only
+                #   `python tools/librarians.py` is a caller. Accepting bare mentions would
+                #   rebuild the grep failure this file was written to escape.
+                s = line.strip()
+                if "python" in s and needle in s:
+                    out.append((os.path.relpath(p, root), s[:90]))
+                    break
+    return sorted(out)
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description="Is X actually wired into Y? AST, not grep.")
     ap.add_argument("component", nargs="?")
@@ -177,9 +224,20 @@ def main(argv):
         print("    imported : %s" % ("YES" if imported else "no"))
         print("    called   : %s" % (", ".join(used) if used else "nothing"))
         if not imported:
-            print("\n  ⚠ NOT WIRED IN. If grep found the name, it found a comment or a string.")
+            print("\n  ⚠ NOT IMPORTED. If grep found the name, it found a comment or a string.")
+            # ★ ...but "not imported" is not the same as "dead", and in this repo it is the answer
+            #   for EVERY tool including recall.py. Say which of the two states this actually is.
+            docs = cli_callers(comp)
+            if docs:
+                print("     — but it is a CLI tool and %d document(s) tell someone to run it:" % len(docs))
+                for p, line in docs[:4]:
+                    print("         %-28s %s" % (p, line))
+                print("     So: WIRED AS A COMMAND, not as an import. Different shape, not dead.")
+            else:
+                print("     — and NO document tells anyone to run it either. That is an orphan:")
+                print("       it will never execute, so its defects cannot be observed.")
         print()
-        return 0 if imported else 1
+        return 0 if (imported or cli_callers(comp)) else 1
 
     hits = who_imports(comp)
     print("\n  who imports %s\n" % comp)
@@ -274,6 +332,27 @@ def selftest():
                 fails.append("an unparseable file reported a component as wired")
         except Exception as e:
             fails.append("an unparseable file raised %s instead of failing safe" % type(e).__name__)
+
+        # ★★★ THE CLI MODE, AND THE TEST THAT MATTERS IS THAT ITS ANSWER VARIES.
+        #     Before this existed, every tool in the repository reported NOT WIRED IN — including
+        #     recall.py. A verdict that is identical for every input cannot be evidence about any
+        #     input, so the assertion here is DISCRIMINATION, not correctness on one case.
+        docdir = os.path.join(tmp, "docs")
+        os.makedirs(docdir, exist_ok=True)
+        io.open(os.path.join(docdir, "guide.md"), "w", encoding="utf-8").write(
+            "Run this daily:\n\n    python tools/invoked.py --check\n\n"
+            "See mentioned.py for background on why that matters.\n")
+        called = cli_callers("invoked", root=tmp)
+        never = cli_callers("mentioned", root=tmp)
+        if not called:
+            fails.append("a documented `python tools/invoked.py` invocation was not found")
+        if never:
+            fails.append("★ a PROSE MENTION counted as an invocation — this is grep again, which "
+                         "is the exact failure this file exists to escape: %s" % never)
+        if bool(called) == bool(never):
+            fails.append("★★ CLI verdict does not discriminate: a documented tool and an "
+                         "undocumented one produced the same answer, which is the constant-output "
+                         "defect this mode was added to fix")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

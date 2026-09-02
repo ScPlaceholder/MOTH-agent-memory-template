@@ -6,10 +6,20 @@
 // of it, not a different idea.
 //
 //     cargo run --release -- --roots ../../memory -- cache locale
-//     cargo run --release -- cache locale            # defaults to ../../memory
+//     cargo run --release -- cache locale            # defaults to the repo's memory/ dir
+//
+// ⚠ The default root used to be the literal relative path "../../memory", correct only when run
+//   from tools/rust_sweep/. Run the built binary from the repo root and it searched nothing and
+//   said so, which is the exact silent-scope failure this file warns about four lines below. It
+//   now resolves against the executable's own location, matching the Python arm's absolute default.
 //
 // ⚠⚠⚠ SEMANTICS MUST MIRROR wide_sweep.py EXACTLY, or a comparison between the two silently
-//   credits the language with a scoping difference and calls it speed. The pinned rules:
+//   credits the language with a scoping difference and calls it speed.
+//   ★ THIS CLAIM WAS FALSE WHEN FIRST PUBLISHED. Verified by one query on a corpus with no ties,
+//     no generated files, no symlinks and nothing outside cp1252 — every dimension where the arms
+//     diverged was absent, so the check could not fail. Now enforced by tools/sweep_conformance.py
+//     against a fixture built to contain exactly those cases. Do not re-assert it by reading.
+//   The pinned rules:
 //     * walk the same roots
 //     * skip the same directory names (dependency trees, not file types)
 //     * binary = magic prefix OR a NUL byte in the first 1024 bytes
@@ -131,16 +141,23 @@ fn collect(root: &Path, out: &mut Vec<PathBuf>) {
     };
     for e in rd.flatten() {
         let p = e.path();
-        match e.file_type() {
-            Ok(ft) if ft.is_dir() => {
-                let name = e.file_name();
-                let name = name.to_string_lossy();
-                if !SKIP_DIRS.iter().any(|s| *s == name) {
-                    collect(&p, out);
-                }
+        // ⚠⚠⚠ USE metadata(), NOT file_type(). DirEntry::file_type does NOT resolve reparse
+        //   points, so a junction or symlink is neither is_dir nor is_file, fell into the empty
+        //   match arm, and was DROPPED SILENTLY AND UNCOUNTED. Python's os.walk descends into
+        //   them. A tool whose stated purpose is catching SCOPE errors had a silent scope hole of
+        //   its own, in the arm recommended for large corpora. metadata() follows the link.
+        let md = match std::fs::metadata(&p) {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        if md.is_dir() {
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            if !SKIP_DIRS.iter().any(|s| *s == name) {
+                collect(&p, out);
             }
-            Ok(ft) if ft.is_file() => out.push(p),
-            _ => {}
+        } else if md.is_file() {
+            out.push(p);
         }
     }
 }
@@ -152,23 +169,67 @@ fn main() {
     let argv: Vec<String> = env::args().skip(1).collect();
     let mut roots: Vec<PathBuf> = Vec::new();
     let mut terms_raw: Vec<String> = Vec::new();
+    let mut limit: usize = 8;
+    // ⚠⚠⚠ THE PREVIOUS LOOP WAS STICKY AND IT INVENTED A DIRECTORY. `in_roots` was set by --roots
+    //   and cleared ONLY by `--`, so an unrecognised flag fell through to the term arm WITHOUT
+    //   clearing it and the next value was eaten as a root:
+    //       --roots ./sample --limit 3 -- the
+    //   parsed as terms=["--limit"], roots=["./sample","3"], and then printed my own carefully
+    //   written "root does not exist" warning about a directory the PARSER had fabricated. The
+    //   guard fired correctly on a fault its own caller caused, which is the most misleading
+    //   possible output: a real alarm about an unreal thing.
+    //   ⚠ It also did not honour `--` as end-of-options, contradicting the usage string above, so
+    //     a search term could never literally be "--roots" or "--".
+    let mut mode_roots = false;      // consuming values for --roots
+    let mut end_of_opts = false;     // everything after `--` is a term, full stop
     let mut i = 0;
-    let mut in_roots = false;
     while i < argv.len() {
-        match argv[i].as_str() {
-            "--roots" => in_roots = true,
-            "--" => in_roots = false,
-            s if in_roots && !s.starts_with("--") => roots.push(PathBuf::from(s)),
-            s => terms_raw.push(s.to_string()),
+        let a = argv[i].as_str();
+        if !end_of_opts && a == "--" {
+            end_of_opts = true;
+            mode_roots = false;
+        } else if !end_of_opts && a == "--roots" {
+            mode_roots = true;
+        } else if !end_of_opts && a == "--limit" {
+            mode_roots = false;
+            i += 1;
+            match argv.get(i).and_then(|v| v.parse::<usize>().ok()) {
+                Some(n) => limit = n,
+                None => {
+                    eprintln!("rust_sweep: --limit needs a number");
+                    std::process::exit(1);
+                }
+            }
+        } else if !end_of_opts && a.starts_with("--") {
+            // ⚠ REFUSE, do not absorb. Silently treating an unknown flag as a search term is how
+            //   a typo becomes a query and returns a confident zero.
+            eprintln!("rust_sweep: unknown option {}  (use `--` before terms starting with --)", a);
+            std::process::exit(1);
+        } else if mode_roots {
+            roots.push(PathBuf::from(a));
+        } else {
+            terms_raw.push(a.to_string());
         }
         i += 1;
     }
     if roots.is_empty() {
-        // default mirrors wide_sweep.py: the template's own memory directory
-        roots.push(PathBuf::from("../../memory"));
+        // ⚠ RESOLVE AGAINST THIS FILE, NOT THE CWD. The old default "../../memory" is correct only
+        //   when run from tools/rust_sweep/ -- run the built binary from the repo root and it
+        //   searched nothing, which is the exact silent-scope failure warned about two lines below.
+        //   Python's DEFAULT_ROOTS is absolute; "walk the same roots" was false by default.
+        let mut d = env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
+        for _ in 0..4 {            // target/release/rust_sweep.exe -> tools/rust_sweep -> tools -> repo
+            d.pop();
+        }
+        d.push("memory");
+        roots.push(d);
     }
+    // ⚠ BLANK TERMS: Python filters on t.strip(); this did not, so `"" badger` returned 0 matches
+    //   in Rust and 3 in Python, and `" " badger` returned the SAME COUNT with different hit
+    //   totals -- agreement on the headline, divergence in the ranking underneath it.
+    terms_raw.retain(|t| !t.trim().is_empty());
     if terms_raw.is_empty() {
-        eprintln!("usage: rust_sweep [--roots DIR ...] [--] <term> [term ...]");
+        eprintln!("usage: rust_sweep [--roots DIR ...] [--limit N] [--] <term> [term ...]");
         eprintln!("       AND across terms, case-insensitive, no index, no extension filter");
         std::process::exit(1);
     }
@@ -279,13 +340,17 @@ fn main() {
         a.0.cmp(&b.0)
             .then(b.1.cmp(&a.1))
             .then(b.2.cmp(&a.2))
-            .then(a.3.cmp(&b.3))
+            // ⚠⚠ STRING COMPARE, NOT PathBuf. PathBuf's Ord is COMPONENT-WISE and never sees the
+            //   separator, so "T.md" vs "T\z.md" orders opposite to Python's byte-wise
+            //   string compare. With tied hits and density that silently returns a DIFFERENT
+            //   document under an 8-item limit -- same query, same corpus, different answer.
+            .then(a.3.to_string_lossy().cmp(&b.3.to_string_lossy()))
     });
     let ms = t0.elapsed().as_millis();
     // ⚠ MATCHED AND SHOWN ARE DIFFERENT NUMBERS. Printing the length of a truncated list as the
     //   headline makes it read as "found" while meaning "shown" — a count that means something
     //   narrower than it says will be read as the wider thing every time.
-    let shown = std::cmp::min(8, hits.len());
+    let shown = std::cmp::min(limit, hits.len());
     println!(
         "rust_sweep: {} matched ({} shown) | {} scanned, {} binary, {} toobig | walk {}ms, total {}ms, {} threads  [UNRANKED — density, not relevance]",
         hits.len(),
@@ -297,6 +362,7 @@ fn main() {
         ms,
         nthreads
     );
+    let none = hits.is_empty();
     for (g, d, n, p) in hits.iter().take(shown) {
         println!(
             "  {} x{:<5} d{:<5} {}",
@@ -305,5 +371,10 @@ fn main() {
             d,
             p.display()
         );
+    }
+    // ⚠ SAME EXIT CODE AS THE PYTHON ARM. They diverged (2 vs always-0), so any script branching
+    //   on "did the sweep find anything" behaved differently depending on which arm it called.
+    if none {
+        std::process::exit(2);
     }
 }

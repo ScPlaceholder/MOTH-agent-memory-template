@@ -86,6 +86,14 @@ BOXES = [
      "tools/memory_candidates.py", r"def capture\("),
     ("11b write side: classifier filling the queue — MEASURED WEAK", "CODE",
      "tools/candidate_classify.py", r"def classify\("),
+    # ★ ADDED 2026-09-02, and the census caught them before I did. Both were written that
+    #   afternoon, both selftested, and `wired.py` reported NOT WIRED IN for each — no importer, no
+    #   caller, no box. I had already told the designer "both gaps are closed", which was true of
+    #   the FILES and false of the SYSTEM. Adding the box is what makes their absence loud later.
+    ("12 dual librarian: guidance vs archive staleness, measured against the SOURCE", "CODE",
+     "tools/librarians.py", r"def archive_status\("),
+    ("13 multi-tier rolling context (cap the READING, never prune by age)", "CODE",
+     "tools/rolling_context.py", r"def prune_plan\("),
     ("--  benchmark that can actually fail", "CODE",
      "tools/benchmark.py", r"def verify\("),
     ("--  acceptance check the USER runs", "CODE",
