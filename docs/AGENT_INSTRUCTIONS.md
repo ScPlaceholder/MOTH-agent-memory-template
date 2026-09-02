@@ -32,9 +32,16 @@ READING THE RESULT — there are three outcomes and they are not the same:
 1. One clear top hit  -> use it. Say where it came from.
 2. Several plausible hits, no clear winner -> do not pick. Say what the candidates are and
    ask, or state that memory is ambiguous here.
-3. Nothing, or only weak matches -> say "memory has nothing on this" and proceed WITHOUT it.
-   Never fill the gap by inventing something plausible. A confident wrong memory is worse
-   than no memory, because it cannot be told apart from a real one.
+3. Nothing, or only weak matches -> SPLIT ON THE QUESTION, not on the search result:
+   3a. the answer depends on OUR history - a past decision, a person, a file, a number we
+       agreed, anything only this record could hold. Say "memory has nothing on this" and
+       proceed WITHOUT it. Never fill the gap by inventing something plausible. A confident
+       wrong memory is worse than no memory, because it cannot be told apart from a real one.
+   3b. the answer does NOT depend on our history - arithmetic, reasoning, general knowledge,
+       or something to look up. Just answer it. An empty search here is not a memory failure
+       and must not be reported as one.
+   The test is narrow and it runs one way: if you cannot answer without knowing something WE
+   decided, it is 3a and you stay quiet. 3b is not a licence to answer from nothing.
 
 WRITING
 - Before writing a new memory, run: python tools/memory_echo.py "<the fact>"
@@ -120,6 +127,28 @@ Outcome #3 is worth stating explicitly for a different reason: **empty is a real
 that treats "nothing found" as a failure to be papered over will paper over it. The tools cooperate —
 `recall.py` prints *"THIS CORPUS has no hit for these terms"* rather than "nothing relevant exists",
 because those are different claims and only one of them is true.
+
+★ **#3 SPLITS, and the split was missing until 2026-09-02.** The designer asked the question that
+exposed it: when retrieval reports *not found within depth 300*, is that a memory failure, or a
+question the agent could simply answer? The old wording said *"say memory has nothing and proceed
+WITHOUT it"* for every empty result — which turns a statement about **the corpus** into a statement
+about **the agent's capability**. "What is 40% of 2650" returns nothing and is not a memory failure;
+it is arithmetic.
+
+So the branch is on the QUESTION, not on the search result:
+
+| | the answer depends on... | do |
+|---|---|---|
+| 3a | our shared history — a decision, a person, a file, an agreed number | say memory has nothing; never invent |
+| 3b | nothing we decided — reasoning, arithmetic, general knowledge, a lookup | just answer; do not report a failure |
+
+⚠ **3b is the dangerous half and it is stated narrowly on purpose.** It is one step from a licence to
+answer from nothing, which is precisely how a confident wrong answer is made. The test runs one way
+only: *if you cannot answer without knowing something WE decided, it is 3a and you stay quiet.*
+
+⚠ Note what this does NOT do: it does not let anything decide a question is not worth searching. The
+search always runs. The split governs how an empty result is REPORTED, after the looking is done.
+A component that can decline to look will eventually decline to look at the thing that mattered.
 
 ### "Write the description in the words you would search with"
 
