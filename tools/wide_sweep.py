@@ -2,9 +2,17 @@
 # -*- coding: utf-8 -*-
 """wide_sweep.py — the dumb arm. No index, no ranking, no filter it can be wrong about.
 
-    python tools/wide_sweep.py "cache locale"
-    python tools/wide_sweep.py --roots ./memory ./notes -- "cache locale"
+    python tools/wide_sweep.py cache locale                    # AND across two terms
+    python tools/wide_sweep.py --roots ./memory ./notes -- cache locale
+    python tools/wide_sweep.py "cache key locale"               # one quoted phrase, literal
     python tools/wide_sweep.py --selftest
+
+⚠ THE FIRST TWO LINES USED TO SHOW A QUOTED "cache locale" AND THE RUST FILE SHOWED IT UNQUOTED.
+  Those are different queries — one is a literal phrase, the other is an AND over two terms — and
+  the quoted one returns NOTHING against this repository's own sample data. The headline example
+  in the file did not work, and worse, the two arms were documented with different invocations
+  while their headers claimed identical semantics, so the comparison that "verified" the claim may
+  never have compared like with like.
 
 ★★★★★ WHY YOU WANT A DELIBERATELY WORSE SEARCH IN THE BOX.
 
@@ -48,11 +56,19 @@ something, that disagreement localises the failure to SCOPE or ROUTING without a
   A fallback expensive enough to need a flag becomes a fallback nobody runs. Unconditional is the
   whole point.
 
-⚠ THIS IS THE PORTABLE, SLOWER ARM ON PURPOSE. `rust_sweep/` beside it is the same semantics in
-  Rust for large corpora. They are pinned to identical rules — same roots, same skip list, same
-  binary test, AND-not-OR — so a comparison between them measures the language and not a scoping
-  difference. If you change a matching rule in one, change it in the other or the comparison is
-  worthless.
+⚠⚠⚠ THIS IS THE PORTABLE, SLOWER ARM ON PURPOSE. `rust_sweep/` beside it is the same semantics in
+  Rust for large corpora, and the claim that they are PINNED is checked by `sweep_conformance.py`
+  rather than by inspection. Read that file's header before trusting this sentence.
+  ★ THE FIRST VERSION OF THIS CLAIM WAS FALSE AND WAS PUBLISHED. It was "verified" by one query
+    against a sample corpus with no ties, no generated files, no symlinks and nothing outside
+    cp1252 — every dimension on which the arms actually differed was absent, so the check could not
+    have come back negative. Four result-changing divergences and a crash were found afterwards by
+    someone who had not written the code: a path tie-break that returned a different document from
+    each arm, a silent symlink hole in the walk, a sticky argument parser, and blank-term handling
+    that agreed on the count while disagreeing underneath it.
+  ⚠ If you change a matching rule in one arm, change it in the other AND add a fixture to
+    `_sweep_conformance/` that would catch them diverging. A conformance suite that cannot fail is
+    worse than none, because it gets quoted afterwards as a measurement.
 """
 
 import argparse
@@ -75,6 +91,15 @@ BINARY_MAGIC = (b"\x89PNG", b"RIFF", b"ID3", b"\xff\xd8\xff", b"PK\x03\x04", b"O
                 b"MZ", b"\x7fELF", b"\x1f\x8b")
 MAX_BYTES = 64_000_000
 DISAGREE_LOG = os.path.join(HERE, ".wide_sweep_disagreements.jsonl")
+
+
+def _safe(line):
+    """print() that cannot be killed by the corpus. See the call site for why this exists."""
+    try:
+        print(line)
+    except UnicodeEncodeError:
+        enc = (getattr(sys.stdout, "encoding", None) or "ascii")
+        print(line.encode(enc, "replace").decode(enc, "replace"))
 
 
 def _looks_binary(head):
@@ -112,12 +137,19 @@ def sweep(terms, roots=None, limit=8):
     pats = [re.compile(re.escape(t).encode("utf-8"), re.I) for t in terms if t.strip()]
     if not pats:
         return [], {"error": "no usable terms"}
-    prefilter = pats[0].pattern
+    prefilter = pats[0].pattern   # pats is already blank-filtered above
     t0 = time.time()
     out = []
     stats = {"scanned": 0, "binary": 0, "toobig": 0, "unreadable": 0}
-    for root in (roots or DEFAULT_ROOTS):
+    # ⚠ `roots is None` means "unset"; an EMPTY list means "you asked for nothing" and must not
+    #   silently fall back to the default. Those are different requests.
+    use = DEFAULT_ROOTS if roots is None else roots
+    stats_missing = [r for r in use if not os.path.isdir(r)]
+    for root in use:
         if not os.path.isdir(root):
+            # ⚠ SAY IT. A missing root returns no matches, which reads exactly like an absent term.
+            #   The Rust arm warned about this and this one silently continued -- so the file that
+            #   preached the rule obeyed it and the file next to it did not.
             continue
         for dirpath, dirs, files in os.walk(root):
             dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
@@ -158,6 +190,7 @@ def sweep(terms, roots=None, limit=8):
                     out.append({"hits": n, "density": n * 1000 // kb, "path": p,
                                 "generated": is_generated(p), "excerpt": " ".join(exc.split())})
     stats["seconds"] = round(time.time() - t0, 2)
+    stats["missing_roots"] = stats_missing
     # authored above generated; then density; then raw count; then path for a stable order
     out.sort(key=lambda r: (r["generated"], -r["density"], -r["hits"], r["path"]))
     # ⚠ REPORT THE TRUE MATCH COUNT SEPARATELY FROM THE SHOWN ONE. Found by racing this against the
@@ -172,6 +205,22 @@ def sweep(terms, roots=None, limit=8):
 
 def log_disagreement(query, n_hits, top_path):
     """Record ranked-said-nothing + sweep-found-something. THIS LOG IS THE PRODUCT.
+
+    ⚠⚠ CALLED BY YOU, NOT BY THIS FILE — and that sentence is here because it was missing.
+      This function shipped with zero call sites anywhere in the repository while its own first
+      line declared itself the product. It could not have been called from inside `sweep()`:
+      the disagreement is between the RANKED path and this one, and this file knows nothing about
+      the ranked path. So it is a helper for the integration layer, by construction.
+      ★ But "it cannot be called from here" is a reason it is not wired, not a reason nobody was
+        told. A function that names itself the product and has no callers reads as working
+        machinery to anyone skimming, including its author a week later.
+      WIRE IT LIKE THIS, at whatever site owns both searches:
+
+          hits = ranked_search(q)
+          if not hits:
+              res, _st = sweep(q.split())
+              if res:
+                  log_disagreement(q, len(res), res[0]["path"])
 
     Not the recovered answer — the RATE. After a week of real questions it tells you whether
     fall-through recovers anything or merely adds noise, and it costs nothing to collect. Without
@@ -265,12 +314,19 @@ if __name__ == "__main__":
     if not a.terms:
         ap.print_help(); sys.exit(0)
     res, st = sweep(a.terms, roots=a.roots, limit=a.limit)
+    for _m in st.get("missing_roots") or []:
+        print("  WARNING: root does not exist and was skipped: %s" % _m)
+        print("           A missing root returns no matches, which reads exactly like an absent term.")
     print("  wide_sweep: %d matched (%d shown), %d scanned in %ss  "
           "[UNRANKED — order is hit count, not relevance]"
           % (st.get("matched", len(res)), st.get("shown", len(res)),
              st.get("scanned", 0), st.get("seconds")))
     for r in res:
-        print("    %s x%-4d d%-5d %s" % ("[gen]" if r["generated"] else "     ",
-                                         r["hits"], r["density"], r["path"][-66:]))
-        print("           ...%s..." % r["excerpt"][:220])
+        # ⚠⚠ NEVER DIE ON THE CORPUS YOU ARE SEARCHING. A Windows console defaults to cp1252, and
+        #   this tool's own docstring contains ⚠ and ★ -- so running it over its own repository
+        #   killed it mid-list with a partial result and a non-zero exit. A search tool that
+        #   crashes on a document is worse than one that renders it imperfectly.
+        _safe(  "    %s x%-4d d%-5d %s" % ("[gen]" if r["generated"] else "     ",
+                                           r["hits"], r["density"], r["path"][-66:]))
+        _safe("           ...%s..." % r["excerpt"][:220])
     sys.exit(0 if res else 2)
