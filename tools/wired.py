@@ -102,6 +102,7 @@ def analyse(path):
     #   So it stays documented, and the rule above carries the weight:
     #   **"not wired" from this tool means GO AND LOOK. It never means "it is not wired".**
     aliases = {}
+    origin = {}     # local name -> the name it has inside its module (`from m import f as g`: g -> f)
     for n in ast.walk(tree):
         if isinstance(n, ast.Import):
             for a in n.names:
@@ -116,11 +117,24 @@ def analyse(path):
                 # `from keyize import keyize as k` — a bare k() is still a call into keyize
                 for a in n.names:
                     aliases[a.asname or a.name] = real
+                    origin[a.asname or a.name] = a.name
+            elif n.level:
+                # `from . import keyize` has module=None: each NAME is the sibling module.
+                # Skipping these made a module that is in use read as imported by nobody.
+                for a in n.names:
+                    imports.add(a.name)
+                    if a.asname:
+                        aliases[a.asname] = a.name
         # ★ a STRING LITERAL naming a .py file is a dispatch-by-name, and it is real wiring.
         #   Taken from the syntax tree (ast.Constant), so a comment still cannot contribute.
         elif isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.endswith(".py"):
-            imports.add(os.path.basename(n.value)[:-3])
-            calls.add("%s (subprocess/by-name)" % os.path.basename(n.value)[:-3])
+            # The LAST word, so a whole command in one string ("python x.py") names x and
+            # not a module called "python x". The literal must still END in .py:
+            # scanning every word would count any docstring that mentions a file.
+            target = os.path.basename(n.value.split()[-1])[:-3]
+            if target:
+                imports.add(target)
+                calls.add("%s (subprocess/by-name)" % target)
 
     # PASS 2 — calls, resolved through the alias table built above.
     for n in ast.walk(tree):
@@ -134,7 +148,12 @@ def analyse(path):
             elif isinstance(f, ast.Name):
                 calls.add(f.id)
                 if aliases.get(f.id, f.id) != f.id:
-                    calls.add("%s.%s (via alias)" % (aliases[f.id], f.id))
+                    name = origin.get(f.id, f.id)
+                    if name != f.id:
+                        # `from splade import rank as r; r()` is splade.rank, never "splade.r"
+                        calls.add("%s.%s (via alias %s)" % (aliases[f.id], name, f.id))
+                    else:
+                        calls.add("%s.%s (via alias)" % (aliases[f.id], f.id))
     return imports, calls
 
 
@@ -317,6 +336,47 @@ def selftest():
             "    return subprocess.run(['python', os.path.join(HERE, 'fusion.py'), q])\n")
         if not check("fusion", sub)[0]:
             fails.append("subprocess dispatch by filename was not recognised as wiring")
+
+        # one command STRING is the same dispatch as the list form
+        cmd = os.path.join(tmp, "cmd.py")
+        io.open(cmd, "w", encoding="utf-8").write(
+            "import subprocess\n"
+            "def h():\n"
+            "    return subprocess.run('python fusion.py', shell=True)\n")
+        if not check("fusion", cmd)[0]:
+            fails.append("a command written as ONE string ('python fusion.py') was not "
+                         "recognised as wiring")
+        # ...and with a folder in it, which worked before and must keep working
+        io.open(cmd, "w", encoding="utf-8").write(
+            "import subprocess\n"
+            "def h():\n"
+            "    return subprocess.run('python tools/fusion.py', shell=True)\n")
+        if not check("fusion", cmd)[0]:
+            fails.append("a one-string command with a folder ('python tools/fusion.py') was not "
+                         "recognised as wiring")
+
+        # `from . import x` names a sibling MODULE and has no module of its own
+        rel = os.path.join(tmp, "rel.py")
+        io.open(rel, "w", encoding="utf-8").write(
+            "from . import splade\ndef g():\n    return splade.rank('q')\n")
+        if not check("splade", rel)[0]:
+            fails.append("`from . import X` was not recognised as wiring")
+        relas = os.path.join(tmp, "relas.py")
+        io.open(relas, "w", encoding="utf-8").write(
+            "from . import splade as _sp\ndef g():\n    return _sp.rank('q')\n")
+        imported, used = check("splade", relas)
+        if not imported or not any("splade.rank" in u for u in used):
+            fails.append("`from . import X as Y` lost the import or the call: %s" % used)
+
+        # a renamed function is reported under its REAL name
+        ren = os.path.join(tmp, "ren.py")
+        io.open(ren, "w", encoding="utf-8").write(
+            "from splade import rank as r\ndef g():\n    return r('q')\n")
+        used = check("splade", ren)[1]
+        if not any(u.startswith("splade.rank") for u in used):
+            fails.append("a renamed from-import was not labelled with its real name: %s" % used)
+        if any(u.startswith("splade.r ") for u in used):
+            fails.append("the ALIAS was reported as a function of the module: %s" % used)
 
         nosub = os.path.join(tmp, "nosub.py")
         io.open(nosub, "w", encoding="utf-8").write(
