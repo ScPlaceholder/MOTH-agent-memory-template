@@ -368,8 +368,9 @@ def verify(root, probes_path, top=3):
             print("           should find: %s" % exp)
     print("\n     That is expected and documented — the known limit, not a defect. **And it is")
     print("     fixable by you, for free:** add the words you would SEARCH with to those files'")
-    print("     `description` lines. Measured on the shipped corpora, doing that rescued 4 of 4,")
-    print("     every one to rank 1. See docs/FORMAT.md.")
+    print("     `description` lines. When that was measured (on the four boundary cases an")
+    print("     earlier version of these corpora had) it rescued all four, each to rank 1.")
+    print("     This run did not re-measure it. See docs/FORMAT.md.")
 
     print("\n" + "-" * 74)
     if ok_run:
@@ -461,8 +462,10 @@ def main(argv):
                     for line in _wrap(why, 74):
                         print("                    %s" % line)
         print("\n    ⚠ The fix for every one of these is free and belongs to whoever writes the note:")
-        print("      put the words you would SEARCH with into the description. Measured: doing that")
-        print("      rescued 4 of 4 of these, every one to rank 1. See docs/FORMAT.md.")
+        print("      put the words you would SEARCH with into the description. When that was")
+        print("      measured, on the four boundary cases an earlier version of these corpora had,")
+        print("      it rescued all four, each to rank 1. This run did not re-measure it, and the")
+        print("      list above is today's. See docs/FORMAT.md.")
         if surprises:
             print("\n    ⚠ %d boundary case(s) started working. Good news, but update the docs — a" % surprises)
             print("      documented limit that quietly stopped being true misleads worse than none.")

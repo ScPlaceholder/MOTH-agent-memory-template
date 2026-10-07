@@ -108,10 +108,27 @@ def split_front(text):
         return {}, text
     head, body = text[3:end], text[end + 4:]
     fm = {}
-    for line in head.splitlines():
+    lines = head.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
         if ":" in line and not line.strip().startswith("#"):
             k, _, v = line.partition(":")
-            fm[k.strip().lstrip("- ")] = v.strip()
+            v = v.strip()
+            # A block scalar: `description: |` or `>` (optionally with + or -), then the
+            # value on the indented lines below. Before this the value came back as the
+            # single character "|" and the text was dropped, so a description written this
+            # way took no part in scoring.
+            if v[:1] in ("|", ">") and v.strip("|>+-0123456789") == "":
+                block = []
+                while i < len(lines) and (not lines[i].strip() or lines[i][:1] in (" ", "\t")):
+                    block.append(lines[i].strip())
+                    i += 1
+                while block and not block[-1]:
+                    block.pop()
+                v = ("\n" if v[0] == "|" else " ").join(block)
+            fm[k.strip().lstrip("- ")] = v
     return fm, body
 
 
@@ -366,6 +383,22 @@ def selftest():
                          % (type(e).__name__, e))
     finally:
         shutil.rmtree(hostile, ignore_errors=True)
+
+    # A description written as a YAML block must be READ. It used to come back as "|" with
+    # the text dropped, so the words in it could not be found.
+    fm, body = split_front("---\nname: blk\ndescription: |\n  quokka habitat notes\n"
+                           "  second line\ntype: note\n---\nbody text\n")
+    if fm.get("description") != "quokka habitat notes\nsecond line":
+        fails.append("block-scalar description was not read: %r" % fm.get("description"))
+    if fm.get("type") != "note" or body.strip() != "body text":
+        fails.append("the key after a block scalar, or the body, was lost: %r / %r"
+                     % (fm.get("type"), body))
+    fm, _ = split_front("---\ndescription: >-\n  folded one\n  folded two\n---\nx\n")
+    if fm.get("description") != "folded one folded two":
+        fails.append("folded block scalar was not joined: %r" % fm.get("description"))
+    fm, _ = split_front("---\ndescription: plain | with a pipe\n---\nx\n")
+    if fm.get("description") != "plain | with a pipe":
+        fails.append("a one-line value containing a pipe was changed: %r" % fm.get("description"))
 
     for f in fails:
         print("   -", f)
